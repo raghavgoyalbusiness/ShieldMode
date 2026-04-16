@@ -1,0 +1,32 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ShieldCheck, ShieldAlert, XCircle, Clock, Radio, MessageCircle, Send, AlertTriangle, ChevronDown, CheckCircle } from 'lucide-react';
+import { useShieldStore } from '../store/useShieldStore';
+import { StatusBadge } from '../components/StatusBadge';
+import { ContactCard } from '../components/ContactCard';
+import { formatTime } from '../utils/helpers';
+
+const RESPONSE_KEYWORDS = ['CALLING', 'ON MY WAY', 'OMW', 'OK', 'COMING'];
+
+export function LiveAlert() {
+  const { alertState, contacts, cancelCountdownSec, countdownSec, messages, settings, cancelSOS, confirmSafe, resetToReady, simulateContactResponse } = useShieldStore();
+  const navigate = useNavigate();
+  const [showMessages, setShowMessages] = useState(false);
+  const [simResponseIdx, setSimResponseIdx] = useState<string | null>(null);
+  const isActive = alertState !== 'ready' && alertState !== 'safe';
+  useEffect(() => { if (alertState === 'ready') navigate('/'); }, [alertState, navigate]);
+  if (alertState === 'ready') return null;
+  return (
+    <div className="flex flex-col min-h-full px-5 py-4">
+      <div className="text-center mb-4"><StatusBadge state={alertState} />{settings.demoMode && <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Demo Mode — No real alerts sent</p>}</div>
+      {alertState === 'triggered' && (<div className="flex flex-col items-center py-8 animate-shake"><div className="w-24 h-24 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4"><ShieldAlert className="w-12 h-12 text-red-500" /></div><h2 className="text-xl font-bold text-red-600 dark:text-red-400 mb-2">SOS Activated</h2><p className="text-4xl font-mono font-bold text-[var(--color-shield-text)] mb-2">{cancelCountdownSec}</p><p className="text-sm text-[var(--color-shield-text-muted)] mb-6">seconds to cancel</p><button onClick={cancelSOS} className="w-full max-w-xs flex items-center justify-center gap-2 py-4 rounded-xl bg-stone-200 dark:bg-stone-700 text-[var(--color-shield-text)] font-semibold text-lg active:scale-[0.98] transition-transform"><XCircle className="w-6 h-6" />Cancel SOS</button></div>)}
+      {alertState === 'alerted' && (<div className="flex flex-col items-center py-6"><div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4"><Send className="w-8 h-8 text-amber-500" /></div><h2 className="text-lg font-bold text-[var(--color-shield-text)] mb-1">Sending Alerts...</h2><p className="text-sm text-[var(--color-shield-text-muted)]">Contacting your trusted network</p></div>)}
+      {alertState === 'waiting' && (<div className="flex flex-col items-center py-4"><div className="relative w-28 h-28 mb-4"><svg className="w-28 h-28 -rotate-90" viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" fill="none" stroke="currentColor" strokeWidth="6" className="text-stone-200 dark:text-stone-700" /><circle cx="60" cy="60" r="54" fill="none" strokeWidth="6" stroke="currentColor" className="text-amber-500" strokeDasharray={`${2 * Math.PI * 54}`} strokeDashoffset={`${2 * Math.PI * 54 * (1 - countdownSec / settings.escalationDelaySec)}`} strokeLinecap="round" /></svg><div className="absolute inset-0 flex flex-col items-center justify-center"><Clock className="w-5 h-5 text-amber-500 mb-1" /><span className="text-2xl font-mono font-bold text-[var(--color-shield-text)]">{formatTime(countdownSec)}</span></div></div><p className="text-sm text-[var(--color-shield-text-muted)] text-center">Waiting for contact response before escalation</p></div>)}
+      {alertState === 'escalating' && (<div className="flex flex-col items-center py-6"><div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4"><AlertTriangle className="w-8 h-8 text-red-500" /></div><h2 className="text-lg font-bold text-red-600 dark:text-red-400 mb-1">Escalation Active</h2><p className="text-sm text-[var(--color-shield-text-muted)] text-center">Stronger messages sent to all contacts</p></div>)}
+      {alertState === 'responder_active' && (<div className="flex flex-col items-center py-6"><div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-4"><Radio className="w-8 h-8 text-blue-500" /></div><h2 className="text-lg font-bold text-blue-600 dark:text-blue-400 mb-1">Help is Coming</h2><p className="text-sm text-[var(--color-shield-text-muted)] text-center">A contact has responded — hang tight</p></div>)}
+      {alertState === 'safe' && (<div className="flex flex-col items-center py-6"><div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4"><ShieldCheck className="w-8 h-8 text-green-600 dark:text-green-400" /></div><h2 className="text-lg font-bold text-green-600 dark:text-green-400 mb-1">You're Safe</h2><p className="text-sm text-[var(--color-shield-text-muted)] text-center mb-4">Contacts have been notified. Incident logged.</p><button onClick={resetToReady} className="w-full max-w-xs py-3.5 rounded-xl bg-green-600 text-white font-semibold active:scale-[0.98] transition-transform">Return to Home</button></div>)}
+      {isActive && (<div className="mt-4"><h3 className="font-semibold text-[var(--color-shield-text)] mb-2">Contact Status</h3><div className="space-y-2">{contacts.map(c => (<div key={c.id}><ContactCard contact={c} />{settings.demoMode && c.responseStatus === 'none' && alertState !== 'triggered' && (<div className="mt-1 ml-12">{simResponseIdx === c.id ? (<div className="flex gap-1.5 flex-wrap">{RESPONSE_KEYWORDS.map(kw => (<button key={kw} onClick={() => { simulateContactResponse(c.id, kw); setSimResponseIdx(null); }} className="px-2.5 py-1 text-xs font-medium rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 active:scale-95 transition-transform">"{kw}"</button>))}</div>) : (<button onClick={() => setSimResponseIdx(c.id)} className="text-xs text-blue-600 dark:text-blue-400 font-medium">Simulate response →</button>)}</div>)}</div>))}</div></div>)}
+      {isActive && alertState !== 'triggered' && (<div className="mt-auto pt-4 space-y-2"><button onClick={confirmSafe} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-green-600 text-white font-semibold active:scale-[0.98] transition-transform"><CheckCircle className="w-5 h-5" />I'm Safe</button></div>)}
+    </div>
+  );
+}
